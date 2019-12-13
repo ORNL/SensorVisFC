@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <head>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script type="text/javascript" src="./js/focusContextTimeChart.js"></script>
+    
+
+    <style>
+      body{
+        font: 12px sans-serif;
+        margin: 4px 20px 0px 20px;
+        background: whitesmoke;
+        /*margin: 0;*/
+      }
+
+      #placeholder img {
+        border:2px solid #999;
+        /*border-radius: 8%;*/
+        border-top-right-radius: 8px;
+        border-bottom-left-radius: 8px;
+        margin:10px 10px;
+        box-shadow: 2px 2px 18px rgb(82, 81, 81);
+      }
+
+      .zoom {
+        cursor: move;
+        fill: none;
+        pointer-events: all;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- <center> -->
+      <h2>SensorVis Focus+Context: Time Series Visualization Prototype</h2>
+      <hr/>
+      <h3>Instructions:</h3>
+      <p>
+        <b>Load A File:</b> Either drag a file from your system file explore and drop it over the 'Choose File' button or click the button and select a file from the dialog. Currently, only a single file can be loaded.</br></br>
+        <b>Focus Time Series Chart (top):</b> The top chart is the focus view. You can zoom into this view by double clicking (or double tapping) in the chart. You can also pan the view left or right by clicking and dragging. When you pan or zoom, the bottom context chart will show the time range currently visible in the focus chart as a highlighted gray rectangle.</br></br>
+        <b>Context Time Series Chart (bottom):</b> The bottom chart is the context view. In this view, the entire time series is displayed in this chart and the portion of the time series that is currently viewed in the top focus chart is indicated with a gray rectangle. The focus view can be changed by dragging either end of the gray rectangle in the context view or a new rectangle can be made by clicking in a different region of the context chart. You can also click on the rectangle and slide it left or right to change the focus view. This rectangle also changes if the user pans / zooms in the focus view.</br></br>
+        <b>Initial Image:</b> It's just a placeholder that goes away when you load data.
+      </p>
+      <hr/>
+      <h3>Controls:</h3>
+      <p>
+        <label for="fileInput">Files: </label>
+        <input type="file" id="fileInput" onchange="loadFile()"><br/><br/>
+      </p>
+    <!-- </center> -->
+    <hr/>
+    <h3>Chart:</h3>
+    <div id="placeholder">
+      <center>
+        <!-- <img src="https://picsum.photos/id/870/700/300?grayscale"/> -->
+        <img src="https://picsum.photos/id/190/700/300?grayscale"/>
+            <!-- <img src= "https://picsum.photos/600/400?grayscale"/> -->
+      </center>
+    </div>
+    <div id="chart"></div>
+    <br/>
+    <br/>
+    <hr/>
+    <center>
+      <h4>&copy; <a href="https://www.ornl.gov">Oak Ridge National Laboratory</a>
+          <script type="text/javascript">
+              document.write(new Date().getFullYear());
+          </script>
+      </h4>
+    </center>
+
+    <script>
+      const margin = {top: 30, right: 30, bottom: 20, left: 60};
+      let chartData;
+      let chart;
+      const chartHeight = 400;
+
+      let parseTime = d3.timeParse("%H:%M:%S.%f");
+
+      const type = ({time, mr}) =>
+        ({date: parseTime(time), value: +mr});
+
+      // d3.csv('data/bosch_mr.csv', type)
+      //   // ({time, mr}) =>
+      //   // ({date: parseTime(time), value: +mr}))
+      // .then((data) => {
+      //   chartData = data;
+      //   console.log(chartData);
+
+      //   let divWidth = document.getElementById('chart').clientWidth;
+
+      //   let chart = overviewDetailTimeChart()
+      //     // .margin(margin)
+      //     // .width(divWidth)
+      //     // .height(chartHeight)
+      //     // .showPoints(false)
+      //     // .showLine(true)
+      //     // .curveFunction(d3.curveStepAfter)
+      //     .dateValue(d => d.date)
+      //     .yValue(d => d.value);
+      //   d3.select('#chart').call(chart, chartData);
+      // });
+
+      const loadFile = () => {
+        const files = document.getElementById('fileInput').files;
+        if (files && files[0]) {
+          let reader = new FileReader();
+          reader.onload = (file) => {
+            chartData = d3.csvParse(reader.result, type);
+            removeChart();
+            createChart();
+            // console.log(chartData);
+          }
+          reader.onerror = (error) => console.log(error);
+          reader.readAsText(files[0]);
+        }
+      }
+
+      const removeChart = () => {
+        d3.select('#placeholder').remove();
+        d3.select('#chart').selectAll("*").remove();
+      }
+
+      const createChart = () => {
+        if (chartData) {
+          let divWidth = document.getElementById('chart').clientWidth;
+
+          let chart = focusContextTimeChart()
+            // .margin(margin)
+            .width(divWidth)
+            // .height(chartHeight)
+            // .showPoints(false)
+            // .showLine(true)
+            // .curveFunction(d3.curveStepAfter)
+            .dateValue(d => d.date)
+            .yValue(d => d.value);
+          d3.select('#chart').call(chart, chartData);
+        }
+      }
+    </script>
+  </body>
+</html>
