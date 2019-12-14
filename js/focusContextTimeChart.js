@@ -14,9 +14,9 @@ var focusContextTimeChart = function() {
   let showPoints = false;
   let showLine = true;
   let pointColor = d3.rgb(30, 30, 30, 0.4);
-//   let lineColor = d3.rgb(32, 96, 64, 0.6);
+  //   let lineColor = d3.rgb(32, 96, 64, 0.6);
   let lineColor = "#0088cc";
-//   let contextLineColor = d3.rgb(51, 102, 153, 0.4);
+  //   let contextLineColor = d3.rgb(51, 102, 153, 0.4);
   let rangeFillColor = "#c6dbef";
 
   let chartData;
@@ -26,25 +26,29 @@ var focusContextTimeChart = function() {
   let focus, context;
   let xAxis, xAxis2, yAxis;
 
-  let line = d3.line()
+  let line = d3
+    .line()
     .curve(curveFunction)
     .x(d => x(dateValue(d)))
     .y(d => y(yValue(d)));
 
-  let line2 = d3.line()
+  let line2 = d3
+    .line()
     .curve(curveFunction)
     .x(d => x2(dateValue(d)))
     .y(d => y2(yValue(d)));
 
-  let brush = d3.brushX()
-    .extent([[0, 0], [width, height2]])
-    .on("end", brushed);
+  let brush;
+  let zoom;
+  // let brush = d3.brushX()
+  //   .extent([[0, 0], [width, height2]])
+  //   .on("end", brushed);
 
-  let zoom = d3.zoom()
-    .scaleExtent([1, Infinity])
-    .translateExtent([[0,0], [width, height]])
-    .extent([[0, 0], [width, height]])
-    .on("zoom", zoomed);
+  // let zoom = d3.zoom()
+  //   .scaleExtent([1, Infinity])
+  //   .translateExtent([[0,0], [width, height]])
+  //   .extent([[0, 0], [width, height]])
+  //   .on("zoom", zoomed);
 
   function chart(selection, data) {
     chartData = data;
@@ -56,95 +60,137 @@ var focusContextTimeChart = function() {
 
   function drawChart() {
     if (chartData) {
-        svg = chartDiv.append('svg')
-            .attr('width', width + margin.left + margin.right)
-            .attr('height', height + margin.top + margin.bottom);
+      brush = d3
+        .brushX()
+        .extent([
+          [0, 0],
+          [width, height2]
+        ])
+        .on("end", brushed);
 
-        x = d3.scaleTime()
-            .range([0, width])
-            .domain(d3.extent(chartData, d => dateValue(d)))
-            .nice();
-        x2 = d3.scaleTime()
-            .range([0, width])
-            .domain(x.domain())
-            .nice();
-        y = d3.scaleLinear()
-            .range([height, 0])
-            .domain(d3.extent(chartData, d => yValue(d)))
-            .nice();
-        y2 = d3.scaleLinear()
-            .range([height2, 0])
-            .domain(y.domain())
-            .nice();
+      zoom = d3
+        .zoom()
+        .scaleExtent([1, Infinity])
+        .translateExtent([
+          [0, 0],
+          [width, height]
+        ])
+        .extent([
+          [0, 0],
+          [width, height]
+        ])
+        .on("zoom", zoomed);
 
-        
-        xAxis = d3.axisBottom(x);
-        xAxis2 = d3.axisBottom(x2);
-        yAxis = d3.axisLeft(y).tickSize(-width);
+      svg = chartDiv
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom);
 
-        svg.append("defs").append("clipPath")
-            .attr("id", "clip")
-            .append("rect")
-                .attr("width", width)
-                .attr("height", height);
-        
-        focus = svg.append("g")
-            .attr("class", "focus")
-            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-        
-        context = svg.append("g")
-            .attr("class", "context")
-            .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
-        
-        focus.append("path")
-            .datum(chartData)
-            .attr("class", "line")
-                .attr("d", line)
-                .attr("clip-path", `url(#clip)`)
-                .attr("fill", "none")
-                .attr("stroke", lineColor)
-                .attr("stroke-linejoin", "round")
-                .attr("stroke-width", "1px");
-      
-        focus.append("g")
-            .attr("class", "axis axis--x")
-            .attr("transform", "translate(0," + height + ")")
-            .call(xAxis);
-      
-        focus.append("g")
-            .attr("class", "axis axis--y")
-            .call(yAxis);
-        
-        focus.select(".axis--y").selectAll(".tick line").attr("opacity", 0.15);
-        focus.selectAll(".domain").remove();
-      
-        context.append("path")
-            .datum(chartData)
-            .attr("class", "line")
-            .attr("d", line2)
-                .attr("clip-path", `url(#clip)`)
-                .attr("fill", "none")
-                .attr("stroke", lineColor)
-                .attr("stroke-opacity", 0.6)
-                .attr("stroke-linejoin", "round")
-                .attr("stroke-width", "1px");
-      
-        context.append("g")
-            .attr("class", "axis axis--x")
-            .attr("transform", "translate(0," + height2 + ")")
-            .call(xAxis2);
-      
-        context.append("g")
-            .attr("class", "brush")
-            .call(brush)
-            .call(brush.move, x.range());
-      
-        svg.append("rect")
-            .attr("class", "zoom")
-            .attr("width", width)
-            .attr("height", height)
-            .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-            .call(zoom);
+      x = d3
+        .scaleTime()
+        .range([0, width])
+        .domain(d3.extent(chartData, d => dateValue(d)))
+        .nice();
+      x2 = d3
+        .scaleTime()
+        .range([0, width])
+        .domain(x.domain())
+        .nice();
+      y = d3
+        .scaleLinear()
+        .range([height, 0])
+        .domain(d3.extent(chartData, d => yValue(d)))
+        .nice();
+      y2 = d3
+        .scaleLinear()
+        .range([height2, 0])
+        .domain(y.domain())
+        .nice();
+
+      xAxis = d3.axisBottom(x);
+      xAxis2 = d3.axisBottom(x2);
+      yAxis = d3.axisLeft(y).tickSize(-width);
+
+      svg
+        .append("defs")
+        .append("clipPath")
+        .attr("id", "clip")
+        .append("rect")
+        .attr("width", width)
+        .attr("height", height);
+
+      focus = svg
+        .append("g")
+        .attr("class", "focus")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+      context = svg
+        .append("g")
+        .attr("class", "context")
+        .attr(
+          "transform",
+          "translate(" + margin2.left + "," + margin2.top + ")"
+        );
+
+      focus
+        .append("path")
+        .datum(chartData)
+        .attr("class", "line")
+        .attr("d", line)
+        .attr("clip-path", `url(#clip)`)
+        .attr("fill", "none")
+        .attr("stroke", lineColor)
+        .attr("stroke-linejoin", "round")
+        .attr("stroke-width", "1px");
+
+      focus
+        .append("g")
+        .attr("class", "axis axis--x")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxis);
+
+      focus
+        .append("g")
+        .attr("class", "axis axis--y")
+        .call(yAxis);
+
+      focus
+        .select(".axis--y")
+        .selectAll(".tick line")
+        .attr("opacity", 0.15);
+      focus.selectAll(".domain").remove();
+
+      context
+        .append("path")
+        .datum(chartData)
+        .attr("class", "line")
+        .attr("d", line2)
+        .attr("clip-path", `url(#clip)`)
+        .attr("fill", "none")
+        .attr("stroke", lineColor)
+        .attr("stroke-opacity", 0.6)
+        .attr("stroke-linejoin", "round")
+        .attr("stroke-width", "1px");
+
+      context
+        .append("g")
+        .attr("class", "axis axis--x")
+        .attr("transform", "translate(0," + height2 + ")")
+        .call(xAxis2);
+
+      context
+        .append("g")
+        .attr("class", "brush")
+        .call(brush)
+        .call(brush.move, x.range());
+
+      svg
+        .append("rect")
+        .attr("class", "zoom")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        .call(zoom);
     }
   }
 
@@ -155,11 +201,14 @@ var focusContextTimeChart = function() {
     focus.select(".line").attr("d", line);
     focus.select(".axis--x").call(xAxis);
     focus.select(".axis--x").selectAll(".domain").remove();
-    svg.select(".zoom").call(zoom.transform, d3.zoomIdentity
-        .scale(width / (s[1] - s[0]))
-        .translate(-s[0], 0));
+    svg
+      .select(".zoom")
+      .call(
+        zoom.transform,
+        d3.zoomIdentity.scale(width / (s[1] - s[0])).translate(-s[0], 0)
+      );
   }
-  
+
   function zoomed() {
     if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
     var t = d3.event.transform;
