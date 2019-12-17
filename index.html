@@ -77,8 +77,14 @@
 
       let parseTime = d3.timeParse("%H:%M:%S.%f");
 
+      let stripDecimals = function(t) {
+        // console.log(t.slice(0, -3));
+        // console.log(parseTime(t.slice(0, -3)));
+        return t.length > 15 ? t.slice(0, -(t.length - 15)) : t;
+      }
+
       const type = ({time, mr}) =>
-        ({date: parseTime(time), value: +mr});
+        ({date: parseTime(stripDecimals(time)), value: +mr});
 
       // d3.csv('data/bosch_mr.csv', type)
       //   // ({time, mr}) =>
@@ -107,6 +113,7 @@
           let reader = new FileReader();
           reader.onload = (file) => {
             chartData = d3.csvParse(reader.result, type);
+            // console.log(chartData);
             removeChart();
             createChart();
             // console.log(chartData);
