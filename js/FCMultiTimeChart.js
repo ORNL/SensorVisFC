@@ -101,16 +101,21 @@ var FCMultiTimeChart = function () {
             let yAxis = d3.axisLeft();
             let xAxis = d3.axisBottom();
 
+            // let s = d3.event.selection || contextX.range();
+            //     x.domain(s.map(contextX.invert, contextX));
+
+            
+
             focus.append("g")
                 .attr("class", "chart-background")
                 .each(function(series, i) {
                     d3.select(this).append("rect")
-                        .attr("fill", i % 2 ? "white" : "whitesmoke")
+                        .attr("fill", "white")
                         .attr("stroke", "none")
-                        .attr("x", -margin.left)
-                        .attr("y", 0)
-                        .attr("width", width + margin.left + margin.right)
-                        .attr("height", focusChartScale.bandwidth());
+                        .attr("x", 0)
+                        .attr("y", focusMargin.top)
+                        .attr("width", width)
+                        .attr("height", focusChartScale.bandwidth() - focusMargin.top - focusMargin.bottom);
                 });
                 
             focus.append("g")
@@ -208,7 +213,39 @@ var FCMultiTimeChart = function () {
                 .attr("class", "brush")
                 .call(brush)
                 .call(brush.move, x.range());
+
+            let zoomed = function() {
+                if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; //ignore zoom-by-brush
+                let t = d3.event.transform;
+                console.log(t);
+                x.domain(t.rescaleX(contextX).domain());
+                console.log(`x domain is ${x.domain()}`);
+                g.selectAll(".series")
+                    .each(function(series) {
+                        console.log(`series: ${series}`);
+                        let line = d3.line()
+                            .curve(curveFunction)
+                            .x(d => x(dateValue(d)))
+                            .y(d => focusY[series](yValue(d)));
+                        
+                        d3.select(this).selectAll(".line").attr("d", line);
+                        d3.select(this).select(".axis--x").call(xAxis);
+                    });
+                context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
+            };
+
+            let zoom = d3.zoom()
+                .scaleExtent([1, Infinity])
+                .translateExtent([0,0],[width, height])
+                .extent([0,0], [width, height])
+                .on("zoom", zoomed);
             
+            // svg.append("rect")
+            //     .attr("class", "zoom")
+            //     .attr("width", width)
+            //     .attr("height", height)
+            //     .attr("transform", `translate(${margin.left}, ${margin.top})`)
+            //     .call(zoom);
         }
     }
 
