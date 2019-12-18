@@ -3,7 +3,7 @@
 <html>
   <head>
     <script src="https://d3js.org/d3.v5.min.js"></script>
-    <script type="text/javascript" src="./js/focusContextTimeChart.js"></script>
+    <script type="text/javascript" src="./js/FCMultiTimeChart.js"></script>
     
 
     <style>
@@ -45,7 +45,7 @@
       <h3>Controls:</h3>
       <p>
         <label for="fileInput">Files: </label>
-        <input type="file" id="fileInput" onchange="loadFile()"><br/><br/>
+        <input type="file" id="fileInput" onchange="loadFile()" multiple><br/><br/>
       </p>
     <!-- </center> -->
     <hr/>
@@ -109,17 +109,55 @@
 
       const loadFile = () => {
         const files = document.getElementById('fileInput').files;
-        if (files && files[0]) {
-          let reader = new FileReader();
-          reader.onload = (file) => {
-            chartData = d3.csvParse(reader.result, type);
-            // console.log(chartData);
-            removeChart();
-            createChart();
-            // console.log(chartData);
+        if (files) {
+          let promises = [];
+          for (let i = 0; i < files.length; i++) {
+            const promise = new Promise(resolve => {
+              const reader = new FileReader();
+              reader.readAsText(files[i]);
+              reader.onload = () => resolve([files[i], reader.result]);
+              reader.onerror = (error) => reject(error);
+            });
+            promises.push(promise);
           }
-          reader.onerror = (error) => console.log(error);
-          reader.readAsText(files[0]);
+
+          let allFileData = [];
+          Promise.all(promises)
+            .then(fileContents => {
+              fileContents.forEach(([file, fileContent]) => {
+                try {
+                  const fileData = d3.csvParse(fileContent, type);
+                  const dateExtent = d3.extent(fileData, d => d.date);
+                  console.log(file);
+                  allFileData.push({
+                    seriesTitle: file.name,
+                    dateExtent: dateExtent,
+                    values: fileData,
+                  });
+                } catch (error) {
+                  console.log(error);
+                }
+              });
+              console.log(allFileData);
+              chartData = allFileData;
+              removeChart();
+              createChart();
+            })
+            .catch(error => {
+              console.log(error)
+            });
+          
+          // let reader = new FileReader();
+          // reader.onload = (file) => {
+          //   let data = d3.csvParse(reader.result, type);
+
+          //   // console.log(chartData);
+          //   removeChart();
+          //   createChart();
+          //   // console.log(chartData);
+          // }
+          // reader.onerror = (error) => console.log(error);
+          // reader.readAsText(files[0]);
         }
       }
 
@@ -132,7 +170,7 @@
         if (chartData) {
           let divWidth = document.getElementById('chart').clientWidth;
 
-          let chart = focusContextTimeChart()
+          let chart = FCMultiTimeChart()
             // .margin(margin)
             .width(divWidth)
             // .height(chartHeight)
