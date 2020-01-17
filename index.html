@@ -2,8 +2,9 @@
 <meta charset="utf-8">
 <html>
   <head>
-    <script src="https://d3js.org/d3.v5.min.js"></script>
-    <script type="text/javascript" src="./js/FCMultiTimeChart.js"></script>
+    <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+    <script type="text/javascript" src="./js/smallMultiplesTimeChart.js"></script>
+    <script type="text/javascript" src="./js/contextTimeChart.js"></script>
     
 
     <style>
@@ -57,7 +58,8 @@
             <!-- <img src= "https://picsum.photos/600/400?grayscale"/> -->
       </center>
     </div>
-    <div id="chart"></div>
+    <div id="contextChart"></div>
+    <div id="smallMultiplesCharts"></div>
     <br/>
     <br/>
     <hr/>
@@ -70,10 +72,13 @@
     </center>
 
     <script>
-      const margin = {top: 30, right: 30, bottom: 20, left: 60};
+      const margin = {top: 30, right: 30, bottom: 20, left: 80};
       let chartData;
       let chart;
-      const chartHeight = 400;
+      const smallMultipleChartHeight = 200;
+      const contextChartHeight = 200;
+      let contextChart;
+      let smallMultiplesChart;
 
       let parseTime = d3.timeParse("%H:%M:%S.%f");
 
@@ -163,25 +168,56 @@
 
       const removeChart = () => {
         d3.select('#placeholder').remove();
-        d3.select('#chart').selectAll("*").remove();
+        d3.select('#contextChart').selectAll("*").remove();
+        d3.select('#smallMultiplesCharts').selectAll("*").remove();
       }
+
+      const handleContextRangeBrushing = (brushedDateDomain) => {
+        console.log('handling a context brushing');
+        console.log(brushedDateDomain);
+        if (smallMultiplesChart) {
+          smallMultiplesChart.dateDomain(brushedDateDomain);
+        }
+      };
 
       const createChart = () => {
         if (chartData) {
-          let divWidth = document.getElementById('chart').clientWidth;
+          let dateDomain = [
+            d3.min(chartData.map(d => d.values), d => d3.min(d, d => d.date)),
+            d3.max(chartData.map(d => d.values), d => d3.max(d, d => d.date))
+          ];
+          const datePadding = (dateDomain[1] - dateDomain[0]) * 0.05;
+          dateDomain[0] = new Date(dateDomain[0].getTime() - datePadding);
+          dateDomain[1] = new Date(dateDomain[1].getTime() + datePadding);
+          console.log(dateDomain);
 
-          let chart = FCMultiTimeChart()
-            // .margin(margin)
+          let divWidth = document.getElementById('contextChart').clientWidth;
+
+          contextChart = contextTimeChart()
+            .margin(margin)
             .width(divWidth)
-            // .height(chartHeight)
-            // .showPoints(false)
-            // .showLine(true)
-            // .curveFunction(d3.curveStepAfter)
+            .height(contextChartHeight)
+            .dateDomain(dateDomain)
+            .seriesStartDate(d => d.dateExtent[0])
+            .seriesEndDate(d => d.dateExtent[1])
+            .seriesName(d => d.seriesTitle)
+            .rangeBrushedHandler(handleContextRangeBrushing);
+          d3.select('#contextChart').call(contextChart, chartData);
+
+          smallMultiplesChart = smallMultiplesTimeChart()
+            .margin(margin)
+            .width(divWidth)
+            .height(smallMultipleChartHeight)
+            .dateDomain(dateDomain)
             .dateValue(d => d.date)
-            .yValue(d => d.value);
-          d3.select('#chart').call(chart, chartData);
+            .yValue(d => d.value)
+            .showPoints(false)
+            .showLine(true)
+            .curveFunction(d3.curveMonotoneX);
+
+          d3.select('#smallMultiplesCharts').call(smallMultiplesChart, chartData);
         }
-      }
+      };
     </script>
   </body>
 </html>
