@@ -95,6 +95,7 @@ var smallMultiplesTimeChart = function() {
         .attr("d", function(chartDatum) {
           return d3
             .line()
+            .defined(d => { return !isNaN(chartDatum.y(yValue(d))); })
             .curve(curveFunction)
             .x(d => x(dateValue(d)))
             .y(d => chartDatum.y(yValue(d)))(chartDatum.values);

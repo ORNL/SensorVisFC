@@ -13,7 +13,7 @@ var contextTimeChart = function () {
   let chartDiv;
 
   function chart(selection, data) {
-    chartData = data;
+    chartData = Array.from(data);
     chartDiv = selection;
     drawChart();
   }
@@ -28,6 +28,7 @@ var contextTimeChart = function () {
           d3.max(chartData, seriesEndDate)
         ];
       }
+      console.log(dateDomain);
 
       const x = d3.scaleTime()
         .range([0, width])
@@ -37,6 +38,41 @@ var contextTimeChart = function () {
         .range([0, height])
         .domain(seriesNames)
         .padding(0.4);
+
+      // calculate time histograms for each series based on x scale range
+      chartData.forEach(chartDatum => {
+        const dataWidth = x(seriesEndDate(chartDatum)) - x(seriesStartDate(chartDatum));
+        console.log(`dataWidth: ${dataWidth/4}`);
+
+        const seriesX = d3.scaleTime()
+          .range([x(seriesStartDate(chartDatum)), x(seriesEndDate(chartDatum))])
+          .domain([seriesStartDate(chartDatum), seriesEndDate(chartDatum)]);
+
+        const bins = d3.histogram()
+          .value(d => d.date)
+          .domain(seriesX.domain())
+          .thresholds(seriesX.ticks(dataWidth/4))
+          // .thresholds(dataWidth/2)
+          (chartDatum.values);
+
+        bins.forEach(bin => {
+          let sortedValues = bin.map(d => d.value).sort(d3.ascending);
+          Object.assign(bin, {
+            median: d3.median(sortedValues),
+            q1: d3.quantile(sortedValues, 0.25),
+            q3: d3.quantile(sortedValues, 0.75),
+            mean: d3.mean(sortedValues),
+            stdev: d3.deviation(sortedValues),
+            min: sortedValues[0],
+            max: sortedValues[sortedValues.length - 1],
+            n: sortedValues.length
+          });
+        });
+
+        Object.assign(chartDatum, {bins: bins});
+        console.log(bins);
+      });
+      console.log(chartData);
       
       const svg = chartDiv.append('svg')
         .attr('width', width + margin.left + margin.right)
@@ -45,20 +81,48 @@ var contextTimeChart = function () {
       const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-      chartData.map(d => {
-        const x1 = x(seriesStartDate(d));
-        const x2 = x(seriesEndDate(d));
-        const y0 = y(seriesName(d));
+      chartData.map(chartDatum => {
+        const binColor = d3.scaleSequential(t => d3.interpolateOrRd(1 - t))
+          .domain(d3.extent(chartDatum.bins, d => d.median));
 
-        g.append("line")
-          .attr("x1", x(seriesStartDate(d)))
-          .attr("x2", x(seriesEndDate(d)))
-          .attr("y1", y0)
-          .attr("y2", y0)
-          .attr("stroke", "dodgerblue")
+        let series = g.selectAll(".series")
+          .data(chartDatum.bins)
+          .enter().append("line")
+          .attr("x1", d => x(d.x0))
+          .attr("x2", d => x(d.x1))
+          .attr("y1", y(seriesName(chartDatum)))
+          .attr("y2", y(seriesName(chartDatum)))
           .attr("fill", "none")
-          .attr("stroke-width", 2);
+          .attr("stroke", d => binColor(d.median))
+          .attr("stroke-width", 3);
+
+          // .enter().append("g")
+          // .attr("class", "series")
+          // .attr("fill", "none")
+          // .attr("stroke-width", 3);
+        
+        series.append("line")
+          .attr("class", "line")
+          .attr("x1", d => x(d.x1))
+          .attr("x2", d => x(d.x2))
+          .attr("y1", y(seriesName(chartDatum)))
+          .attr("y2", y(seriesName(chartDatum)))
+          .attr("stroke", "black");
       });
+      // chartData.map(d => {
+        // const x1 = x(seriesStartDate(d));
+        // const x2 = x(seriesEndDate(d));
+        // const y0 = y(seriesName(d));
+
+        // g.append("line")
+        //   .attr("x1", x(seriesStartDate(d)))
+        //   .attr("x2", x(seriesEndDate(d)))
+        //   .attr("y1", y0)
+        //   .attr("y2", y0)
+        //   .attr("stroke", "dodgerblue")
+        //   .attr("fill", "none")
+        //   .attr("stroke-width", 2);
+      // });
       
       const yAxis = d3.axisLeft(y);
       g.append("g")

@@ -88,8 +88,12 @@
         return t.length > 15 ? t.slice(0, -(t.length - 15)) : t;
       }
 
-      const type = ({time, mr}) =>
-        ({date: parseTime(stripDecimals(time)), value: +mr});
+      const type = ({time, value}) =>
+        ({
+          date: new Date(time),
+          value: + value,
+        });
+        // ({date: parseTime(stripDecimals(time)), value: +value});
 
       // d3.csv('data/bosch_mr.csv', type)
       //   // ({time, mr}) =>
@@ -133,7 +137,7 @@
                 try {
                   const fileData = d3.csvParse(fileContent, type);
                   const dateExtent = d3.extent(fileData, d => d.date);
-                  console.log(file);
+                  console.log(fileData);
                   allFileData.push({
                     seriesTitle: file.name,
                     dateExtent: dateExtent,
