@@ -24,6 +24,8 @@ var contextTimeChart = function () {
 
   function drawChart() {
     if (chartData) {
+      chartDiv.selectAll("*").remove();
+      
       const seriesNames = chartData.map(seriesName);
 
       if (!dateDomain) {
@@ -56,7 +58,7 @@ var contextTimeChart = function () {
         const bins = d3.histogram()
           .value(d => d.date)
           .domain(seriesX.domain())
-          .thresholds(seriesX.ticks(dataWidth * .05))
+          .thresholds(seriesX.ticks(dataWidth * .1))
           // .thresholds(dataWidth/2)
           (chartDatum.values);
 
@@ -83,15 +85,15 @@ var contextTimeChart = function () {
         });
 
         let scaleDomain = [
-          d3.min(bins, bin => bin.q1), 
-          d3.max(bins, bin => bin.q3)
+          d3.min(bins, bin => bin.min), 
+          d3.max(bins, bin => bin.max)
         ];
 
         chartDatum.contextY = d3.scaleLinear()
           .domain(scaleDomain)
           .range([y(seriesName(chartDatum)) + y.bandwidth(), y(seriesName(chartDatum))]);
 
-        Object.assign(chartDatum, {bins: bins});
+        Object.assign(chartDatum, {contextBins: bins});
         // console.log(bins);
       });
       console.log(chartData);
@@ -112,8 +114,61 @@ var contextTimeChart = function () {
           .attr("width", width)
           .attr("height", y.bandwidth());
 
+        const filteredBins = chartDatum.contextBins.filter(d => d.length > 0);
+
+        g.selectAll("rangeline")
+          .data(filteredBins)
+        .enter().append("line")
+          .attr("stroke-width", 1)
+          .attr("fill", "none")
+          .attr("stroke", "dodgerblue")
+          .attr("x1", d => (x(d.x0) + x(d.x1)) / 2.)
+          .attr("x2", d => (x(d.x0) + x(d.x1)) / 2.)
+          .attr("y1", d => chartDatum.contextY(d.r0))
+          .attr("y2", d => chartDatum.contextY(d.r1));
+
+        g.selectAll("iqrbox")
+          .data(filteredBins)
+        .enter().append("rect")
+          .attr("fill", iqrRangeFill)
+          .attr("stroke", "none")
+          .attr("x", d => x(d.x0))
+          .attr("width", d => x(d.x1) - x(d.x0))
+          .attr("y", d => chartDatum.contextY(d.q3))
+          .attr("height", d => chartDatum.contextY(d.q1) - chartDatum.contextY(d.q3));
+
+        g.selectAll("medianline")
+          .data(filteredBins)
+        .enter().append("line")
+          .attr("stroke-width", 1)
+          .attr("fill", "none")
+          .attr("stroke", "dodgerblue")
+          .attr("x1", d => x(d.x0))
+          .attr("x2", d => x(d.x1))
+          .attr("y1", d => chartDatum.contextY(d.median))
+          .attr("y2", d => chartDatum.contextY(d.median));
+
+        /*
+        filteredBins.map(bin => {
+          const outliers = bin.filter(d => d.value > bin.r1 || d.value < bin.r0);
+          console.log(outliers);
+          g.append("g")
+            .attr("fill", "black")
+            .attr("fill-opacity", 0.15)
+            .attr("stroke", "none")
+            .attr("transform", `translate(${(x(bin.x0) + x(bin.x1)) / 2},0)`)
+          .selectAll("circle")
+          .data(outliers)
+          .join("circle")
+            .attr("r", 1)
+            .attr("cx", () => (Math.random() - 0.5) * 4)
+            .attr("cy", d => chartDatum.contextY(d.value));
+
+        });
+        */
+        /*
         g.append("path")
-          .datum(chartDatum.bins)
+          .datum(chartDatum.contextBins)
         .attr("class", "range")
           .attr("fill", iqrRangeFill)
           .attr("d", d3.area()
@@ -124,7 +179,7 @@ var contextTimeChart = function () {
             .y1(function(d) { return chartDatum.contextY(d.q3); }));
 
         g.append("path")
-          .datum(chartDatum.bins)
+          .datum(chartDatum.contextBins)
         .attr("class", "line")
           .attr("fill", "none")
           .attr("stroke", "darkgray")
@@ -136,13 +191,14 @@ var contextTimeChart = function () {
             .y(function(d) { return chartDatum.contextY(d.median);}));
         
         g.selectAll("dot")
-          .data(chartDatum.bins.filter(d => !isNaN(d.median)))
+          .data(chartDatum.contextBins.filter(d => !isNaN(d.median)))
           .enter().append("circle")
           .attr("r", 2)
           .attr("fill", "gray")
           .attr("stroke", "none")
           .attr("cx", d => (x(d.x1) + x(d.x0)) / 2.)
           .attr("cy", d => chartDatum.contextY(d.median));
+        */
       });
 
       const yAxis = d3.axisLeft(y);

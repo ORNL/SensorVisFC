@@ -20,7 +20,6 @@ var smallMultiplesTimeChart = function() {
   }
 
   function drawChart() {
-    console.log("in drawChart");
     if (chartData && chartDiv) {
       chartDiv.selectAll("*").remove();
 
@@ -37,13 +36,45 @@ var smallMultiplesTimeChart = function() {
         ];
       }
 
-      let x = d3
-        .scaleTime()
+      let x = d3.scaleTime()
         .range([0, width])
         .domain(dateDomain);
 
       let xAxis = d3.axisBottom();
       let yAxis = d3.axisLeft();
+
+      chartData.map(chartDatum => {
+        const bins = d3.histogram()
+          .value(d => d.date)
+          .domain(x.domain())
+          .thresholds(x.ticks(width / 2))
+          (chartDatum.values);
+        
+        bins.map(bin => {
+          const sortedValues = bin.map(d => d.value).sort(d3.ascending);
+          const q1 = d3.quantile(sortedValues, 0.25);
+          const q3 = d3.quantile(sortedValues, 0.75);
+          const iqr = q3 - q1;
+          const minValue = sortedValues[0];
+          const maxValue = sortedValues[sortedValues.length - 1];
+
+          Object.assign(bin, {
+            median: d3.median(sortedValues),
+            q1: q1,
+            q3: q3,
+            mean: d3.mean(sortedValues),
+            stdev: d3.deviation(sortedValues),
+            min: minValue,
+            max: maxValue,
+            r0: Math.max(minValue, q1 - iqr * 1.5),
+            r1: Math.min(maxValue, q3 + iqr * 1.5),
+            n: sortedValues.length
+          });
+        });
+
+        Object.assign(chartDatum, {focusBins: bins});
+      });
+      console.log(chartData);
 
       var svg = chartDiv
         .selectAll("svg")
@@ -68,24 +99,32 @@ var smallMultiplesTimeChart = function() {
             .append("rect")
             .attr("width", width)
             .attr("height", height);
-        
-      svg
-        .append("g")
+      
+      svg.append("g")
+        .attr("fill", "white")
+        .attr("stroke", "none")
+        .each(function(chartDatum) {
+          d3.select(this).append("rect")
+            .attr("x", 0)
+            .attr("y", 0)
+            .attr("width", width)
+            .attr("height", height);
+        });
+
+      svg.append("g")
         .attr("class", "axis axis--x")
         .attr("transform", `translate(0, ${height})`)
         .each(function(chartDatum) {
           d3.select(this).call(xAxis.scale(x));
         });
 
-      svg
-        .append("g")
+      svg.append("g")
         .attr("class", "axis axis--y")
         .each(function(chartDatum) {
           d3.select(this).call(yAxis.scale(chartDatum.y));
         });
 
-      svg
-        .append("path")
+      svg.append("path")
         .attr("class", "line")
         .attr("fill", "none")
         .attr("stroke", lineColor)
