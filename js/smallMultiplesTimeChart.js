@@ -4,7 +4,7 @@ var smallMultiplesTimeChart = function() {
   let height = 140 - margin.top - margin.bottom;
   let dateValue = d => d.date;
   let yValue = d => d.value;
-  let curveFunction = d3.curveStepAfter;
+  let curveFunction = d3.curveMonotoneX;
   let showPoints = false;
   let showLines = true;
   let lineColor = "dodgerblue";
@@ -14,7 +14,7 @@ var smallMultiplesTimeChart = function() {
   let chartDiv;
 
   function chart(selection, data) {
-    chartData = data;
+    chartData = Array.from(data);
     chartDiv = selection;
     drawChart();
   }

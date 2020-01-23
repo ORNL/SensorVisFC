@@ -46,7 +46,7 @@
       <h3>Controls:</h3>
       <p>
         <label for="fileInput">Files: </label>
-        <input type="file" id="fileInput" onchange="loadFile()" multiple><br/><br/>
+        <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/><br/>
       </p>
     <!-- </center> -->
     <hr/>
@@ -116,7 +116,45 @@
       //   d3.select('#chart').call(chart, chartData);
       // });
 
-      const loadFile = () => {
+      const reverseTimeValues = (data) => {
+        // console.log(data);
+        let reversed = [];
+        for (let i = 0; i < data.length; i++) {
+          // console.log(`i: ${i}  ${data.length - 1 - i}`);
+          reversed.push({
+            date: data[i].date,
+            value: data[data.length - 1 - i].value
+          });
+        }
+        // console.log(reversed);
+        return reversed;
+      };
+
+      const loadFilesFromNames = (filenames) => {
+        if (filenames) {
+          allFileData = [];
+          Promise.all(filenames.map(f => d3.csv(f, type)))
+            .then(function (filesData) {
+              for (let i = 0; i < filesData.length; i++) {
+                const dateExtent = d3.extent(filesData[i], d => d.date);
+                allFileData.push({
+                  seriesTitle: filenames[i],
+                  dateExtent: dateExtent,
+                  values: i % 2 ? filesData[i] : reverseTimeValues(filesData[i]),
+                });
+              }
+              console.log(allFileData);
+              chartData = allFileData;
+              removeChart();
+              createChart();
+            })
+            .catch(error => {
+              console.log(error);
+            });
+        }
+      };
+
+      const loadFiles = () => {
         const files = document.getElementById('fileInput').files;
         if (files) {
           let promises = [];
@@ -137,7 +175,7 @@
                 try {
                   const fileData = d3.csvParse(fileContent, type);
                   const dateExtent = d3.extent(fileData, d => d.date);
-                  console.log(fileData);
+                  // console.log(fileData);
                   allFileData.push({
                     seriesTitle: file.name,
                     dateExtent: dateExtent,
@@ -147,7 +185,7 @@
                   console.log(error);
                 }
               });
-              console.log(allFileData);
+              // console.log(allFileData);
               chartData = allFileData;
               removeChart();
               createChart();
@@ -155,18 +193,6 @@
             .catch(error => {
               console.log(error)
             });
-          
-          // let reader = new FileReader();
-          // reader.onload = (file) => {
-          //   let data = d3.csvParse(reader.result, type);
-
-          //   // console.log(chartData);
-          //   removeChart();
-          //   createChart();
-          //   // console.log(chartData);
-          // }
-          // reader.onerror = (error) => console.log(error);
-          // reader.readAsText(files[0]);
         }
       }
 
@@ -193,7 +219,7 @@
           const datePadding = (dateDomain[1] - dateDomain[0]) * 0.05;
           dateDomain[0] = new Date(dateDomain[0].getTime() - datePadding);
           dateDomain[1] = new Date(dateDomain[1].getTime() + datePadding);
-          console.log(dateDomain);
+          // console.log(dateDomain);
 
           let divWidth = document.getElementById('contextChart').clientWidth;
 
@@ -201,6 +227,7 @@
             .margin(margin)
             .width(divWidth)
             .height(contextChartHeight)
+            .curveFunction(d3.curveStep)
             .dateDomain(dateDomain)
             .seriesStartDate(d => d.dateExtent[0])
             .seriesEndDate(d => d.dateExtent[1])
@@ -222,6 +249,16 @@
           d3.select('#smallMultiplesCharts').call(smallMultiplesChart, chartData);
         }
       };
+
+      // loadFilesFromNames(['./data/NV_JAF.BOSCH.p.2019-11-20.15-23-44_16-00-00.csv']);
+      // loadFilesFromNames(['./data/NV_JAF.BOSCH.p.2019-11-20.15-23-44_16-00-00.csv', './data/NV_JAF2.BOSCH.p.2019-11-20.15-23-44_16-00-00.csv']);
+      loadFilesFromNames([
+        // './data/NVJAF_Generator_Bosch_ax_2019-12-11_0000_2400.csv',
+        // './data/NVJAF_Generator_Bosch_gx_2019-12-11_0000_2400.csv',
+        // './data/NVJAF_Generator_Bosch_mr_2019-12-11_0000_2400.csv',
+        './data/NVJAF_Generator_Bosch_mx_2019-12-11_0000_2400.csv',
+        './data/NVJAF_Generator_Bosch_p_2019-12-11_0000_2400.csv'
+      ]);
     </script>
   </body>
 </html>

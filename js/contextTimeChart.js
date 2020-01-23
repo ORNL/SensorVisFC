@@ -7,7 +7,11 @@ var contextTimeChart = function () {
   let seriesName;
   let titleText;
   let dateDomain;
+  let curveFunction = d3.curveMonotoneX;
   let rangeBrushedHandler;
+  let pointColor = d3.rgb(30,30,30,0.4);
+  let iqrRangeFill = "#c6dbef";
+  // let innerRangeFill = "#9ecae1";
 
   let chartData;
   let chartDiv;
@@ -28,21 +32,22 @@ var contextTimeChart = function () {
           d3.max(chartData, seriesEndDate)
         ];
       }
-      console.log(dateDomain);
 
       const x = d3.scaleTime()
         .range([0, width])
         .domain(dateDomain);
 
-      const y = d3.scalePoint()
+      const y = d3.scaleBand()
         .range([0, height])
         .domain(seriesNames)
-        .padding(0.4);
+        .paddingInner(0.1);
+
+      let seriesYScales = {};
 
       // calculate time histograms for each series based on x scale range
       chartData.forEach(chartDatum => {
         const dataWidth = x(seriesEndDate(chartDatum)) - x(seriesStartDate(chartDatum));
-        console.log(`dataWidth: ${dataWidth/4}`);
+        // console.log(`dataWidth: ${dataWidth/4}`);
 
         const seriesX = d3.scaleTime()
           .range([x(seriesStartDate(chartDatum)), x(seriesEndDate(chartDatum))])
@@ -51,26 +56,43 @@ var contextTimeChart = function () {
         const bins = d3.histogram()
           .value(d => d.date)
           .domain(seriesX.domain())
-          .thresholds(seriesX.ticks(dataWidth/4))
+          .thresholds(seriesX.ticks(dataWidth * .05))
           // .thresholds(dataWidth/2)
           (chartDatum.values);
 
         bins.forEach(bin => {
-          let sortedValues = bin.map(d => d.value).sort(d3.ascending);
+          const sortedValues = bin.map(d => d.value).sort(d3.ascending);
+          const q1 = d3.quantile(sortedValues, 0.25);
+          const q3 = d3.quantile(sortedValues, 0.75);
+          const iqr = q3 - q1;
+          const minValue = sortedValues[0];
+          const maxValue = sortedValues[sortedValues.length - 1];
+
           Object.assign(bin, {
             median: d3.median(sortedValues),
-            q1: d3.quantile(sortedValues, 0.25),
-            q3: d3.quantile(sortedValues, 0.75),
+            q1: q1,
+            q3: q3,
             mean: d3.mean(sortedValues),
             stdev: d3.deviation(sortedValues),
-            min: sortedValues[0],
-            max: sortedValues[sortedValues.length - 1],
+            min: minValue,
+            max: maxValue,
+            r0: Math.max(minValue, q1 - iqr * 1.5),
+            r1: Math.min(maxValue, q3 + iqr * 1.5),
             n: sortedValues.length
           });
         });
 
+        let scaleDomain = [
+          d3.min(bins, bin => bin.q1), 
+          d3.max(bins, bin => bin.q3)
+        ];
+
+        chartDatum.contextY = d3.scaleLinear()
+          .domain(scaleDomain)
+          .range([y(seriesName(chartDatum)) + y.bandwidth(), y(seriesName(chartDatum))]);
+
         Object.assign(chartDatum, {bins: bins});
-        console.log(bins);
+        // console.log(bins);
       });
       console.log(chartData);
       
@@ -81,61 +103,60 @@ var contextTimeChart = function () {
       const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-      chartData.map(chartDatum => {
-        const binColor = d3.scaleSequential(t => d3.interpolateOrRd(1 - t))
-          .domain(d3.extent(chartDatum.bins, d => d.median));
+      chartData.map((chartDatum, i) => {
+        g.append("rect")
+          .attr("fill", "white")
+          .attr("stroke", "none")
+          .attr("x", 0)
+          .attr("y", y(seriesName(chartDatum)))
+          .attr("width", width)
+          .attr("height", y.bandwidth());
 
-        let series = g.selectAll(".series")
-          .data(chartDatum.bins)
-          .enter().append("line")
-          .attr("x1", d => x(d.x0))
-          .attr("x2", d => x(d.x1))
-          .attr("y1", y(seriesName(chartDatum)))
-          .attr("y2", y(seriesName(chartDatum)))
+        g.append("path")
+          .datum(chartDatum.bins)
+        .attr("class", "range")
+          .attr("fill", iqrRangeFill)
+          .attr("d", d3.area()
+            .curve(curveFunction)
+            .defined(d => { return d.length > 0; })
+            .x(function(d) { return (x(d.x1) + x(d.x0)) / 2.; })
+            .y0(function(d) { return chartDatum.contextY(d.q1); })
+            .y1(function(d) { return chartDatum.contextY(d.q3); }));
+
+        g.append("path")
+          .datum(chartDatum.bins)
+        .attr("class", "line")
           .attr("fill", "none")
-          .attr("stroke", d => binColor(d.median))
-          .attr("stroke-width", 3);
-
-          // .enter().append("g")
-          // .attr("class", "series")
-          // .attr("fill", "none")
-          // .attr("stroke-width", 3);
+          .attr("stroke", "darkgray")
+          .attr("stroke-width", 0.5)
+          .attr("d", d3.line()
+            .curve(curveFunction)
+            .defined(d => { return d.length > 0; })
+            .x(function(d) { return (x(d.x1) + x(d.x0)) / 2.; })
+            .y(function(d) { return chartDatum.contextY(d.median);}));
         
-        series.append("line")
-          .attr("class", "line")
-          .attr("x1", d => x(d.x1))
-          .attr("x2", d => x(d.x2))
-          .attr("y1", y(seriesName(chartDatum)))
-          .attr("y2", y(seriesName(chartDatum)))
-          .attr("stroke", "black");
+        g.selectAll("dot")
+          .data(chartDatum.bins.filter(d => !isNaN(d.median)))
+          .enter().append("circle")
+          .attr("r", 2)
+          .attr("fill", "gray")
+          .attr("stroke", "none")
+          .attr("cx", d => (x(d.x1) + x(d.x0)) / 2.)
+          .attr("cy", d => chartDatum.contextY(d.median));
       });
-      // chartData.map(d => {
-        // const x1 = x(seriesStartDate(d));
-        // const x2 = x(seriesEndDate(d));
-        // const y0 = y(seriesName(d));
 
-        // g.append("line")
-        //   .attr("x1", x(seriesStartDate(d)))
-        //   .attr("x2", x(seriesEndDate(d)))
-        //   .attr("y1", y0)
-        //   .attr("y2", y0)
-        //   .attr("stroke", "dodgerblue")
-        //   .attr("fill", "none")
-        //   .attr("stroke-width", 2);
-      // });
-      
       const yAxis = d3.axisLeft(y);
       g.append("g")
         .attr("class", "axis axis--y")
         .call(yAxis);
-      g.selectAll(".tick line").attr('opacity', 0.15);
+      // g.selectAll(".tick line").attr('opacity', 0.15);
 
       const xAxis = d3.axisBottom(x);
       g.append("g")
         .attr("class", "axis axis--x")
         .attr("transform", `translate(0, ${height})`)
         .call(xAxis);
-      g.selectAll("domain").remove();
+      // g.selectAll(".axis--x .domain").remove();
 
       const brushed = () => {
         let s = d3.event.selection || x.range();
@@ -150,8 +171,8 @@ var contextTimeChart = function () {
 
       g.append("g")
         .attr("class", "brush")
-        .call(brush)
-        .call(brush.move, x.range());
+        .call(brush);
+        // .call(brush.move, x.range());
     }
   }
 
@@ -228,6 +249,14 @@ var contextTimeChart = function () {
       return seriesName;
     }
     seriesName = value;
+    return chart;
+  }
+
+  chart.curveFunction = function(value) {
+    if (!arguments.length) {
+      return curveFunction;
+    }
+    curveFunction = value;
     return chart;
   }
 
