@@ -7,8 +7,13 @@ var smallMultiplesTimeChart = function() {
   let curveFunction = d3.curveMonotoneX;
   let showPoints = false;
   let showLines = true;
-  let lineColor = "dodgerblue";
+  let lineColor = "black"/*"#2F4F4F"*/;
+  let rawLineColor = "dodgerblue";
+  let lineStrokeWidth = 0.8;
+  let minmaxRangeFill = "#D4E2ED";
+  let iqrRangeFill = "#8BB1D0";
   let dateDomain;
+  let showRawData = false;
 
   let chartData;
   let chartDiv;
@@ -43,38 +48,45 @@ var smallMultiplesTimeChart = function() {
       let xAxis = d3.axisBottom();
       let yAxis = d3.axisLeft();
 
-      chartData.map(chartDatum => {
-        const bins = d3.histogram()
-          .value(d => d.date)
-          .domain(x.domain())
-          .thresholds(x.ticks(width / 2))
-          (chartDatum.values);
-        
-        bins.map(bin => {
-          const sortedValues = bin.map(d => d.value).sort(d3.ascending);
-          const q1 = d3.quantile(sortedValues, 0.25);
-          const q3 = d3.quantile(sortedValues, 0.75);
-          const iqr = q3 - q1;
-          const minValue = sortedValues[0];
-          const maxValue = sortedValues[sortedValues.length - 1];
+      if (!showRawData) {
+        chartData.map(chartDatum => {
+          const bins = d3.histogram()
+            .value(d => d.date)
+            .domain(x.domain())
+            .thresholds(x.ticks(width * 0.4))
+            (chartDatum.values);
+          
+          let outliers = [];
+          bins.map(bin => {
+            const sortedValues = bin.map(d => d.value).sort(d3.ascending);
+            const q1 = d3.quantile(sortedValues, 0.25);
+            const q3 = d3.quantile(sortedValues, 0.75);
+            const iqr = q3 - q1;
+            const minValue = sortedValues[0];
+            const maxValue = sortedValues[sortedValues.length - 1];
 
-          Object.assign(bin, {
-            median: d3.median(sortedValues),
-            q1: q1,
-            q3: q3,
-            mean: d3.mean(sortedValues),
-            stdev: d3.deviation(sortedValues),
-            min: minValue,
-            max: maxValue,
-            r0: Math.max(minValue, q1 - iqr * 1.5),
-            r1: Math.min(maxValue, q3 + iqr * 1.5),
-            n: sortedValues.length
+            Object.assign(bin, {
+              median: d3.median(sortedValues),
+              q1: q1,
+              q3: q3,
+              mean: d3.mean(sortedValues),
+              stdev: d3.deviation(sortedValues),
+              min: minValue,
+              max: maxValue,
+              r0: Math.max(minValue, q1 - iqr * 1.5),
+              r1: Math.min(maxValue, q3 + iqr * 1.5),
+              n: sortedValues.length
+            });
+
+            outliers = outliers.concat(bin.filter(d => yValue(d) > bin.r1 || yValue(d) < bin.r0));
           });
-        });
 
-        Object.assign(chartDatum, {focusBins: bins});
-      });
-      console.log(chartData);
+          Object.assign(chartDatum, {focusBins: bins});
+          Object.assign(chartDatum, {focusOutliers: outliers});
+        });
+      }
+
+      // console.log(chartData);
 
       var svg = chartDiv
         .selectAll("svg")
@@ -124,21 +136,93 @@ var smallMultiplesTimeChart = function() {
           d3.select(this).call(yAxis.scale(chartDatum.y));
         });
 
-      svg.append("path")
-        .attr("class", "line")
-        .attr("fill", "none")
-        .attr("stroke", lineColor)
-        .attr("stroke-width", 1)
-        .attr("clip-path", `url(#clip)`)
-        .attr("stroke-join", "round")
-        .attr("d", function(chartDatum) {
-          return d3
-            .line()
-            .defined(d => { return !isNaN(chartDatum.y(yValue(d))); })
-            .curve(curveFunction)
-            .x(d => x(dateValue(d)))
-            .y(d => chartDatum.y(yValue(d)))(chartDatum.values);
-        });
+      if (showRawData) {
+        svg.append("path")
+          .attr("class", "line")
+          .attr("fill", "none")
+          .attr("stroke", rawLineColor)
+          .attr("stroke-width", lineStrokeWidth)
+          .attr("clip-path", `url(#clip)`)
+          .attr("stroke-join", "round")
+          .attr("d", function(chartDatum) {
+            return d3
+              .line()
+              .defined(d => { return !isNaN(chartDatum.y(yValue(d))); })
+              .curve(curveFunction)
+              .x(d => x(dateValue(d)))
+              .y(d => chartDatum.y(yValue(d)))(chartDatum.values);
+          });
+      } else {
+        svg.append("path")
+          .attr("class", "outlierrange")
+          .attr("fill", minmaxRangeFill)
+          .attr("stroke", "none")
+          .attr("clip-path", `url(#clip)`)
+          .attr("d", function(chartDatum) {
+            return d3.area()
+              .defined(d => {return d.length > 0})
+              .curve(d3.curveStep)
+              .x(d => { return (x(d.x0) + x(d.x1)) / 2; })
+              .y0(d => { return chartDatum.y(d.r0); })
+              .y1(d => { return chartDatum.y(d.r1); })
+              (chartDatum.focusBins);            
+          });
+
+        svg.append("path")
+          .attr("class", "iqrrange")
+          .attr("fill", iqrRangeFill)
+          .attr("stroke", "none")
+          .attr("clip-path", `url(#clip)`)
+          .attr("d", function(chartDatum) {
+            return d3.area()
+              .defined(d => {return d.length > 0})
+              .curve(d3.curveStep)
+              .x(d => { return (x(d.x0) + x(d.x1)) / 2; })
+              .y0(d => { return chartDatum.y(d.q1); })
+              .y1(d => { return chartDatum.y(d.q3); })
+              (chartDatum.focusBins);            
+          });
+
+        svg.append("path")
+          .attr("class", "line")
+          .attr("fill", "none")
+          .attr("stroke", lineColor)
+          .attr("stroke-width", lineStrokeWidth)
+          .attr("clip-path", `url(#clip)`)
+          .attr("stroke-join", "round")
+          .attr("d", function(chartDatum) {
+            return d3.line()
+              .defined(d => {return d.length > 0})
+              .curve(curveFunction)
+              .x(d => {return (x(d.x0) + x(d.x1)) / 2;})
+              .y(d => {return chartDatum.y(d.median)})
+              (chartDatum.focusBins);
+          });
+      }
+
+      
+
+      // svg.append("g")
+      //   .attr("fill", "black")
+      //   .attr("fill-opacity", 0.15)
+      //   .attr("stroke", "none")
+      //   .attr("transform", ``)
+
+      // svg.append("path")
+      //   .attr("class", "line")
+      //   .attr("fill", "none")
+      //   .attr("stroke", lineColor)
+      //   .attr("stroke-width", 1)
+      //   .attr("clip-path", `url(#clip)`)
+      //   .attr("stroke-join", "round")
+      //   .attr("d", function(chartDatum) {
+      //     return d3
+      //       .line()
+      //       .defined(d => { return !isNaN(chartDatum.y(yValue(d))); })
+      //       .curve(curveFunction)
+      //       .x(d => x(dateValue(d)))
+      //       .y(d => chartDatum.y(yValue(d)))(chartDatum.values);
+      //   });
     }
   }
 
@@ -194,27 +278,12 @@ var smallMultiplesTimeChart = function() {
     return chart;
   };
 
-  chart.lowValue = function(value) {
-    if (!arguments.length) {
-      return lowValue;
-    }
-    lowValue = value;
-    return chart;
-  };
-
-  chart.highValue = function(value) {
-    if (!arguments.length) {
-      return highValue;
-    }
-    highValue = value;
-    return chart;
-  };
-
   chart.width = function(value) {
     if (!arguments.length) {
       return width;
     }
     width = value - margin.left - margin.right;
+    drawChart();
     return chart;
   };
 
@@ -223,6 +292,7 @@ var smallMultiplesTimeChart = function() {
       return height;
     }
     height = value - margin.top - margin.bottom;
+    drawChart();
     return chart;
   };
 
@@ -242,6 +312,15 @@ var smallMultiplesTimeChart = function() {
     drawChart();
     return chart;
   };
+
+  chart.showRawData = function(value) {
+    if (!arguments.length) {
+      return showRawData;
+    }
+    showRawData = value;
+    drawChart();
+    return chart;
+  }
 
   return chart;
 };

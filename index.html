@@ -29,56 +29,113 @@
         fill: none;
         pointer-events: all;
       }
+
+      .top {
+        background: whitesmoke;
+        overflow: hidden;
+        position: fixed;
+        top: 0;
+        width: 100%;
+      }
+
+      .main {
+        margin-left: 4px;
+        margin-top: 240px;
+      }
+
+      .flex-container {
+        display: flex;
+        flex-direction: row;
+        align-content: space-between;
+        align-items: baseline;
+      }
+
+      .ui-element {
+        padding: 0px 20px;
+      }
     </style>
   </head>
   <body>
-    <!-- <center> -->
+    <div class="top">
       <h2>SensorVis Focus+Context: Time Series Visualization Prototype</h2>
-      <hr/>
+      <!-- <hr/>
       <h3>Instructions:</h3>
       <p>
-        <b>Load A File:</b> Either drag a file from your system file explore and drop it over the 'Choose File' button or click the button and select a file from the dialog. Currently, only a single file can be loaded.</br></br>
-        <b>Focus Time Series Chart (top):</b> The top chart is the focus view. You can zoom into this view by double clicking (or double tapping) in the chart. You can also pan the view left or right by clicking and dragging. When you pan or zoom, the bottom context chart will show the time range currently visible in the focus chart as a highlighted gray rectangle.</br></br>
-        <b>Context Time Series Chart (bottom):</b> The bottom chart is the context view. In this view, the entire time series is displayed in this chart and the portion of the time series that is currently viewed in the top focus chart is indicated with a gray rectangle. The focus view can be changed by dragging either end of the gray rectangle in the context view or a new rectangle can be made by clicking in a different region of the context chart. You can also click on the rectangle and slide it left or right to change the focus view. This rectangle also changes if the user pans / zooms in the focus view.</br></br>
+        <b>Load File(s):</b> Either drag a file from your system file explore and drop it over the 'Choose File' button or click the button and select a file from the dialog. Currently, only a single file can be loaded.</br></br>
+        <b>Context Time Series Chart (top):</b> The bottom chart is the context view. In this view, the entire time series is displayed in this chart and the portion of the time series that is currently viewed in the top focus chart is indicated with a gray rectangle. The focus view can be changed by dragging either end of the gray rectangle in the context view or a new rectangle can be made by clicking in a different region of the context chart. You can also click on the rectangle and slide it left or right to change the focus view. This rectangle also changes if the user pans / zooms in the focus view.</br></br>
+        <b>Focus Time Series Charts (bottom):</b> The top chart is the focus view. You can zoom into this view by double clicking (or double tapping) in the chart. You can also pan the view left or right by clicking and dragging. When you pan or zoom, the bottom context chart will show the time range currently visible in the focus chart as a highlighted gray rectangle.</br></br>
         <b>Initial Image:</b> It's just a placeholder that goes away when you load data.
-      </p>
-      <hr/>
+      </p> -->
+      <!-- <hr/> -->
       <h3>Controls:</h3>
-      <p>
-        <label for="fileInput">Files: </label>
-        <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/><br/>
-      </p>
-    <!-- </center> -->
-    <hr/>
-    <h3>Chart:</h3>
-    <div id="placeholder">
+      <div class="flex-container">
+        <div class="ui-element">
+          <label for="fileInput">Files: </label>
+          <input type="file" id="fileInput" onchange="loadFiles()" multiple>
+        </div>
+      </div>
+      <br/>
+      <div class="flex-container">
+        <div class="ui-element">
+          <input type="checkbox" id="showContextSummaryCheck" onchange="showContextSummaryCheckChanged()"/>
+          <label for="showContextSummaryCheck">Show Context Statistical Summary</label>
+        </div>
+        <div class="ui-element">
+          <input type="checkbox" id="showFocusCheck" onchange="showFocusCheckChanged()" />
+          <label for="showFocusCheck">Show Focus Charts</label>
+        </div>
+        <div class="ui-element">
+          <input type="checkbox" id="showFocusRawDataCheck" onchange="showFocusRawDataCheckChanged()" />
+          <label for="showFocusRawDataCheck">Show Focus Raw Data</label>
+        </div>
+      </div>
+      <div class="flex-container">
+        <div class="ui-element">
+          <label for="contextChartHeightSlider">Context Chart Height: </label>
+          <input id="contextChartHeightSlider" type="range" min=30 max=140 value=30 onchange="contextChartHeightSliderChanged()"/>
+        </div>
+        <div class="ui-element">
+          <label for="focusChartHeightSlider">Focus Chart Height: </label>
+          <input id="focusChartHeightSlider" type="range" min=120 max=400 value=200 onchange="focusChartHeightSliderChanged()" />
+        </div>
+      </div>
+      <br/>
+      <hr/>
+
+      <h3>Context Chart:</h3>
+      <div id="contextChart"></div>
+      <hr/>
+    </div>
+    <div class="main" id="main">
+      <h3>Focus Charts:</h3>
+      <div id="placeholder">
+        <center>
+          <img src="https://picsum.photos/id/190/700/300?grayscale"/>
+        </center>
+      </div>
+      
+      <div id="smallMultiplesCharts"></div>
+      <br/>
+      <br/>
+      <hr/>
       <center>
-        <!-- <img src="https://picsum.photos/id/870/700/300?grayscale"/> -->
-        <img src="https://picsum.photos/id/190/700/300?grayscale"/>
-            <!-- <img src= "https://picsum.photos/600/400?grayscale"/> -->
+        <h4>&copy; <a href="https://www.ornl.gov">Oak Ridge National Laboratory</a>
+            <script type="text/javascript">
+                document.write(new Date().getFullYear());
+            </script>
+        </h4>
       </center>
     </div>
-    <div id="contextChart"></div>
-    <div id="smallMultiplesCharts"></div>
-    <br/>
-    <br/>
-    <hr/>
-    <center>
-      <h4>&copy; <a href="https://www.ornl.gov">Oak Ridge National Laboratory</a>
-          <script type="text/javascript">
-              document.write(new Date().getFullYear());
-          </script>
-      </h4>
-    </center>
 
     <script>
-      const margin = {top: 30, right: 30, bottom: 20, left: 80};
+      const contextMargin = {top: 4, right: 30, bottom: 20, left: 100};
+      const smallMultiplesMargin = {top: 10, right: 30, bottom: 20, left: 100};
+      
       let chartData;
-      let chart;
-      const smallMultipleChartHeight = 200;
-      const contextChartHeight = 200;
+      let dateDomain;
       let contextChart;
       let smallMultiplesChart;
+      let currentBrushedDateDomain;
 
       let parseTime = d3.timeParse("%H:%M:%S.%f");
 
@@ -116,6 +173,7 @@
       //   d3.select('#chart').call(chart, chartData);
       // });
 
+      /*
       const reverseTimeValues = (data) => {
         // console.log(data);
         let reversed = [];
@@ -129,6 +187,7 @@
         // console.log(reversed);
         return reversed;
       };
+      */
 
       const loadFilesFromNames = (filenames) => {
         if (filenames) {
@@ -140,13 +199,22 @@
                 allFileData.push({
                   seriesTitle: filenames[i],
                   dateExtent: dateExtent,
-                  values: i % 2 ? filesData[i] : reverseTimeValues(filesData[i]),
+                  values: filesData[i]
+                  // values: i % 2 ? filesData[i] : reverseTimeValues(filesData[i]),
                 });
               }
-              console.log(allFileData);
+              // console.log(allFileData);
               chartData = allFileData;
-              removeChart();
-              createChart();
+              dateDomain = [
+                d3.min(chartData.map(d => d.values), d => d3.min(d, d => d.date)),
+                d3.max(chartData.map(d => d.values), d => d3.max(d, d => d.date))
+              ];
+              const datePadding = (dateDomain[1] - dateDomain[0]) * 0.05;
+              dateDomain[0] = new Date(dateDomain[0].getTime() - datePadding);
+              dateDomain[1] = new Date(dateDomain[1].getTime() + datePadding);
+              // removeCharts();
+              createContextChart();
+              createSmallMultiplesChart();
             })
             .catch(error => {
               console.log(error);
@@ -187,8 +255,18 @@
               });
               // console.log(allFileData);
               chartData = allFileData;
-              removeChart();
-              createChart();
+              dateDomain = [
+                d3.min(chartData.map(d => d.values), d => d3.min(d, d => d.date)),
+                d3.max(chartData.map(d => d.values), d => d3.max(d, d => d.date))
+              ];
+              const datePadding = (dateDomain[1] - dateDomain[0]) * 0.05;
+              dateDomain[0] = new Date(dateDomain[0].getTime() - datePadding);
+              dateDomain[1] = new Date(dateDomain[1].getTime() + datePadding);
+
+              createContextChart();
+              createSmallMultiplesChart();
+              // removeCharts();
+              // createCharts();
             })
             .catch(error => {
               console.log(error)
@@ -196,22 +274,143 @@
         }
       }
 
-      const removeChart = () => {
-        d3.select('#placeholder').remove();
-        d3.select('#contextChart').selectAll("*").remove();
-        d3.select('#smallMultiplesCharts').selectAll("*").remove();
-      }
+      // const removeCharts = () => {
+      //   d3.select('#placeholder').remove();
+      //   d3.select('#contextChart').selectAll("*").remove();
+      //   d3.select('#smallMultiplesCharts').selectAll("*").remove();
+      // }
 
       const handleContextRangeBrushing = (brushedDateDomain) => {
         console.log('handling a context brushing');
         console.log(brushedDateDomain);
+        dateDomain = brushedDateDomain;
         if (smallMultiplesChart) {
-          smallMultiplesChart.dateDomain(brushedDateDomain);
+          smallMultiplesChart.dateDomain(dateDomain);
         }
       };
 
-      const createChart = () => {
+      const getShowFocusChart = () => {
+        return document.getElementById("showFocusCheck").checked;
+      };
+
+      const getFocusChartHeight = () => {
+        return document.getElementById("focusChartHeightSlider").value;
+      };
+
+      const getContextSeriesChartHeight = () => {
+        return document.getElementById("contextChartHeightSlider").value;
+      };
+
+      const getShowContextStatisticalSummary = () => {
+        return document.getElementById("showContextSummaryCheck").checked;
+      };
+
+      const getShowFocusRawData = () => {
+        return document.getElementById("showFocusRawDataCheck").checked;
+      };
+
+      const showFocusCheckChanged = () => {
+        if (!getShowFocusChart() && smallMultiplesChart) {
+          d3.select('#smallMultiplesCharts').selectAll("*").remove();
+          smallMultiplesChart = null;
+        } else {
+          createSmallMultiplesChart();
+        }
+      };
+
+      const contextChartHeightSliderChanged = () => {
+        // removeCharts();
+        createContextChart();
+        if (contextChart) {
+          const contextChartHeight = getContextSeriesChartHeight() * chartData.length;
+          document.getElementById("main").style.marginTop = `${450 + contextChartHeight}px`;
+          contextChart.height(contextChartHeight);
+        }
+      };
+
+      const showContextSummaryCheckChanged = () => {
+        // createContextChart();
+        if (contextChart) {
+          contextChart.showSeriesStatistics(getShowContextStatisticalSummary());
+        }
+      };
+
+      const focusChartHeightSliderChanged = () => {
+        // createSmallMultiplesChart();
+        if (smallMultiplesChart) {
+          smallMultiplesChart.height(getFocusChartHeight());
+        }
+      };
+
+      const showFocusRawDataCheckChanged = () => {
+        if (smallMultiplesChart) {
+          smallMultiplesChart.showRawData(getShowFocusRawData());
+        }
+      };
+
+      const createContextChart = () => {
+        d3.select('#contextChart').selectAll("*").remove();
+
         if (chartData) {
+          const contextChartHeight = getContextSeriesChartHeight() * chartData.length;
+          document.getElementById("main").style.marginTop = `${240 + contextChartHeight}px`;
+
+          const divWidth = document.getElementById('contextChart').clientWidth;
+
+          contextChart = contextTimeChart()
+            .margin(contextMargin)
+            .width(divWidth)
+            .height(contextChartHeight)
+            .curveFunction(d3.curveMonotoneX)
+            .dateDomain(dateDomain)
+            .showSeriesStatistics(getShowContextStatisticalSummary())
+            .seriesStartDate(d => d.dateExtent[0])
+            .seriesEndDate(d => d.dateExtent[1])
+            .seriesName(d => d.seriesTitle)
+            .rangeBrushedHandler(handleContextRangeBrushing);
+          d3.select('#contextChart').call(contextChart, chartData);
+        }
+      };
+
+      const createSmallMultiplesChart = () => {
+        const showFocus = getShowFocusChart();
+        console.log(`showFocus: ${showFocus}`);
+        console.log(`showFocusRawData: ${getShowFocusRawData()}`);
+
+        if (getShowFocusChart() && chartData) {
+          d3.select('#placeholder').remove();
+          d3.select('#smallMultiplesCharts').selectAll("*").remove();
+
+          // if (chartData) {
+            const divWidth = document.getElementById('contextChart').clientWidth;
+
+            smallMultiplesChart = smallMultiplesTimeChart()
+              .margin(smallMultiplesMargin)
+              .width(divWidth)
+              .height(getFocusChartHeight())
+              .showRawData(getShowFocusRawData())
+              .dateDomain(dateDomain)
+              .dateValue(d => d.date)
+              .yValue(d => d.value)
+              .showPoints(false)
+              .showLine(true)
+              .curveFunction(d3.curveMonotoneX);
+
+            d3.select('#smallMultiplesCharts').call(smallMultiplesChart, chartData);
+          // }
+        }
+      };
+
+      /*
+      const createCharts = () => {
+        if (chartData) {
+          const contextSeriesChartHeight = getContextSeriesChartHeight();
+          console.log(contextSeriesChartHeight);
+          // console.log(document.getElementById("main").style);
+          const contextChartHeight = contextSeriesChartHeight * chartData.length;
+          document.getElementById("main").style.marginTop = `${420 + contextChartHeight}px`;
+          // document.getElementById("main").style['margin-top'] = document.getElementById("main").style.margin-top + contextChartHeight;
+
           let dateDomain = [
             d3.min(chartData.map(d => d.values), d => d3.min(d, d => d.date)),
             d3.max(chartData.map(d => d.values), d => d3.max(d, d => d.date))
@@ -227,8 +426,9 @@
             .margin(margin)
             .width(divWidth)
             .height(contextChartHeight)
-            .curveFunction(d3.curveStep)
+            .curveFunction(d3.curveMonotoneX)
             .dateDomain(dateDomain)
+            .showSeriesStatistics(false)
             .seriesStartDate(d => d.dateExtent[0])
             .seriesEndDate(d => d.dateExtent[1])
             .seriesName(d => d.seriesTitle)
@@ -239,6 +439,7 @@
             .margin(margin)
             .width(divWidth)
             .height(smallMultipleChartHeight)
+            .showRawData(false)
             .dateDomain(dateDomain)
             .dateValue(d => d.date)
             .yValue(d => d.value)
@@ -249,13 +450,14 @@
           d3.select('#smallMultiplesCharts').call(smallMultiplesChart, chartData);
         }
       };
+      */
 
       // loadFilesFromNames(['./data/NV_JAF.BOSCH.p.2019-11-20.15-23-44_16-00-00.csv']);
       // loadFilesFromNames(['./data/NV_JAF.BOSCH.p.2019-11-20.15-23-44_16-00-00.csv', './data/NV_JAF2.BOSCH.p.2019-11-20.15-23-44_16-00-00.csv']);
       loadFilesFromNames([
-        // './data/NVJAF_Generator_Bosch_ax_2019-12-11_0000_2400.csv',
-        // './data/NVJAF_Generator_Bosch_gx_2019-12-11_0000_2400.csv',
-        // './data/NVJAF_Generator_Bosch_mr_2019-12-11_0000_2400.csv',
+        './data/NVJAF_Generator_Bosch_ax_2019-12-11_0000_2400.csv',
+        './data/NVJAF_Generator_Bosch_gx_2019-12-11_0000_2400.csv',
+        './data/NVJAF_Generator_Bosch_mr_2019-12-11_0000_2400.csv',
         './data/NVJAF_Generator_Bosch_mx_2019-12-11_0000_2400.csv',
         './data/NVJAF_Generator_Bosch_p_2019-12-11_0000_2400.csv'
       ]);

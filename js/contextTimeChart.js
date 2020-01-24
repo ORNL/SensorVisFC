@@ -10,8 +10,12 @@ var contextTimeChart = function () {
   let curveFunction = d3.curveMonotoneX;
   let rangeBrushedHandler;
   let pointColor = d3.rgb(30,30,30,0.4);
-  let iqrRangeFill = "#c6dbef";
+  let domainLineColor = "dodgerblue";
+  let medianLineColor = "black";
+  let whiskerLineColor = "gray";
+  let iqrRangeFill = "#8BB1D0";
   // let innerRangeFill = "#9ecae1";
+  let showSeriesStatistics = true;
 
   let chartData;
   let chartDiv;
@@ -25,7 +29,7 @@ var contextTimeChart = function () {
   function drawChart() {
     if (chartData) {
       chartDiv.selectAll("*").remove();
-      
+
       const seriesNames = chartData.map(seriesName);
 
       if (!dateDomain) {
@@ -46,57 +50,59 @@ var contextTimeChart = function () {
 
       let seriesYScales = {};
 
-      // calculate time histograms for each series based on x scale range
-      chartData.forEach(chartDatum => {
-        const dataWidth = x(seriesEndDate(chartDatum)) - x(seriesStartDate(chartDatum));
-        // console.log(`dataWidth: ${dataWidth/4}`);
+      if (showSeriesStatistics) {
+        // calculate time histograms for each series based on x scale range
+        chartData.forEach(chartDatum => {
+          const dataWidth = x(seriesEndDate(chartDatum)) - x(seriesStartDate(chartDatum));
+          // console.log(`dataWidth: ${dataWidth/4}`);
 
-        const seriesX = d3.scaleTime()
-          .range([x(seriesStartDate(chartDatum)), x(seriesEndDate(chartDatum))])
-          .domain([seriesStartDate(chartDatum), seriesEndDate(chartDatum)]);
+          const seriesX = d3.scaleTime()
+            .range([x(seriesStartDate(chartDatum)), x(seriesEndDate(chartDatum))])
+            .domain([seriesStartDate(chartDatum), seriesEndDate(chartDatum)]);
 
-        const bins = d3.histogram()
-          .value(d => d.date)
-          .domain(seriesX.domain())
-          .thresholds(seriesX.ticks(dataWidth * .1))
-          // .thresholds(dataWidth/2)
-          (chartDatum.values);
+          const bins = d3.histogram()
+            .value(d => d.date)
+            .domain(seriesX.domain())
+            .thresholds(seriesX.ticks(dataWidth * .1))
+            // .thresholds(dataWidth/2)
+            (chartDatum.values);
 
-        bins.forEach(bin => {
-          const sortedValues = bin.map(d => d.value).sort(d3.ascending);
-          const q1 = d3.quantile(sortedValues, 0.25);
-          const q3 = d3.quantile(sortedValues, 0.75);
-          const iqr = q3 - q1;
-          const minValue = sortedValues[0];
-          const maxValue = sortedValues[sortedValues.length - 1];
+          bins.forEach(bin => {
+            const sortedValues = bin.map(d => d.value).sort(d3.ascending);
+            const q1 = d3.quantile(sortedValues, 0.25);
+            const q3 = d3.quantile(sortedValues, 0.75);
+            const iqr = q3 - q1;
+            const minValue = sortedValues[0];
+            const maxValue = sortedValues[sortedValues.length - 1];
 
-          Object.assign(bin, {
-            median: d3.median(sortedValues),
-            q1: q1,
-            q3: q3,
-            mean: d3.mean(sortedValues),
-            stdev: d3.deviation(sortedValues),
-            min: minValue,
-            max: maxValue,
-            r0: Math.max(minValue, q1 - iqr * 1.5),
-            r1: Math.min(maxValue, q3 + iqr * 1.5),
-            n: sortedValues.length
+            Object.assign(bin, {
+              median: d3.median(sortedValues),
+              q1: q1,
+              q3: q3,
+              mean: d3.mean(sortedValues),
+              stdev: d3.deviation(sortedValues),
+              min: minValue,
+              max: maxValue,
+              r0: Math.max(minValue, q1 - iqr * 1.5),
+              r1: Math.min(maxValue, q3 + iqr * 1.5),
+              n: sortedValues.length
+            });
           });
+
+          let scaleDomain = [
+            d3.min(bins, bin => bin.min), 
+            d3.max(bins, bin => bin.max)
+          ];
+
+          chartDatum.contextY = d3.scaleLinear()
+            .domain(scaleDomain)
+            .range([y(seriesName(chartDatum)) + y.bandwidth(), y(seriesName(chartDatum))]);
+
+          Object.assign(chartDatum, {contextBins: bins});
+          // console.log(bins);
         });
-
-        let scaleDomain = [
-          d3.min(bins, bin => bin.min), 
-          d3.max(bins, bin => bin.max)
-        ];
-
-        chartDatum.contextY = d3.scaleLinear()
-          .domain(scaleDomain)
-          .range([y(seriesName(chartDatum)) + y.bandwidth(), y(seriesName(chartDatum))]);
-
-        Object.assign(chartDatum, {contextBins: bins});
-        // console.log(bins);
-      });
-      console.log(chartData);
+      }
+      // console.log(chartData);
       
       const svg = chartDiv.append('svg')
         .attr('width', width + margin.left + margin.right)
@@ -107,46 +113,58 @@ var contextTimeChart = function () {
 
       chartData.map((chartDatum, i) => {
         g.append("rect")
-          .attr("fill", "white")
-          .attr("stroke", "none")
-          .attr("x", 0)
-          .attr("y", y(seriesName(chartDatum)))
-          .attr("width", width)
-          .attr("height", y.bandwidth());
+            .attr("fill", "white")
+            .attr("stroke", "none")
+            .attr("x", 0)
+            .attr("y", y(seriesName(chartDatum)))
+            .attr("width", width)
+            .attr("height", y.bandwidth());
 
-        const filteredBins = chartDatum.contextBins.filter(d => d.length > 0);
+        if (showSeriesStatistics) {
+          const filteredBins = chartDatum.contextBins.filter(d => d.length > 0);
 
-        g.selectAll("rangeline")
-          .data(filteredBins)
-        .enter().append("line")
-          .attr("stroke-width", 1)
-          .attr("fill", "none")
-          .attr("stroke", "dodgerblue")
-          .attr("x1", d => (x(d.x0) + x(d.x1)) / 2.)
-          .attr("x2", d => (x(d.x0) + x(d.x1)) / 2.)
-          .attr("y1", d => chartDatum.contextY(d.r0))
-          .attr("y2", d => chartDatum.contextY(d.r1));
+          g.selectAll("rangeline")
+            .data(filteredBins)
+          .enter().append("line")
+            .attr("stroke-width", 1)
+            .attr("fill", "none")
+            .attr("stroke", whiskerLineColor)
+            .attr("x1", d => (x(d.x0) + x(d.x1)) / 2.)
+            .attr("x2", d => (x(d.x0) + x(d.x1)) / 2.)
+            .attr("y1", d => chartDatum.contextY(d.r0))
+            .attr("y2", d => chartDatum.contextY(d.r1));
 
-        g.selectAll("iqrbox")
-          .data(filteredBins)
-        .enter().append("rect")
-          .attr("fill", iqrRangeFill)
-          .attr("stroke", "none")
-          .attr("x", d => x(d.x0))
-          .attr("width", d => x(d.x1) - x(d.x0))
-          .attr("y", d => chartDatum.contextY(d.q3))
-          .attr("height", d => chartDatum.contextY(d.q1) - chartDatum.contextY(d.q3));
+          g.selectAll("iqrbox")
+            .data(filteredBins)
+          .enter().append("rect")
+            .attr("fill", iqrRangeFill)
+            .attr("stroke", "none")
+            .attr("x", d => x(d.x0))
+            .attr("width", d => x(d.x1) - x(d.x0))
+            .attr("y", d => chartDatum.contextY(d.q3))
+            .attr("height", d => chartDatum.contextY(d.q1) - chartDatum.contextY(d.q3));
 
-        g.selectAll("medianline")
-          .data(filteredBins)
-        .enter().append("line")
-          .attr("stroke-width", 1)
-          .attr("fill", "none")
-          .attr("stroke", "dodgerblue")
-          .attr("x1", d => x(d.x0))
-          .attr("x2", d => x(d.x1))
-          .attr("y1", d => chartDatum.contextY(d.median))
-          .attr("y2", d => chartDatum.contextY(d.median));
+          g.selectAll("medianline")
+            .data(filteredBins)
+          .enter().append("line")
+            .attr("stroke-width", 1)
+            .attr("fill", "none")
+            .attr("stroke", medianLineColor)
+            .attr("x1", d => x(d.x0))
+            .attr("x2", d => x(d.x1))
+            .attr("y1", d => chartDatum.contextY(d.median))
+            .attr("y2", d => chartDatum.contextY(d.median));
+        } else {
+          g.append("line")
+            .attr("stroke", domainLineColor)
+            .attr("stroke-width", 3)
+            .attr("stroke-linecap", "round")
+            .attr("fill", "none")
+            .attr("x1", x(seriesStartDate(chartDatum)))
+            .attr("x2", x(seriesEndDate(chartDatum)))
+            .attr("y1", y(seriesName(chartDatum)) + (y.bandwidth()/2))
+            .attr("y2", y(seriesName(chartDatum)) + (y.bandwidth()/2));
+        }
 
         /*
         filteredBins.map(bin => {
@@ -273,6 +291,7 @@ var contextTimeChart = function () {
       return height;
     }
     height = value - margin.top - margin.bottom;
+    drawChart();
     return chart;
   };
 
@@ -313,6 +332,15 @@ var contextTimeChart = function () {
       return curveFunction;
     }
     curveFunction = value;
+    return chart;
+  }
+
+  chart.showSeriesStatistics = function(value) {
+    if (!arguments.length) {
+      return showSeriesStatistics;
+    }
+    showSeriesStatistics = value;
+    drawChart();
     return chart;
   }
 
