@@ -14,6 +14,7 @@ var smallMultiplesTimeChart = function() {
   let iqrRangeFill = "#8BB1D0";
   let dateDomain;
   let showRawData = false;
+  let seriesName;
 
   let chartData;
   let chartDiv;
@@ -136,6 +137,18 @@ var smallMultiplesTimeChart = function() {
           d3.select(this).call(yAxis.scale(chartDatum.y));
         });
 
+      svg.append("g")
+        .style("text-anchor", "start")
+        .style("font-weight", "bold")
+        .style("font-size", 12)
+        .each(function(chartDatum) {
+          d3.select(this).append("text")
+            .attr("x", 4)
+            .attr("y", -4)
+            .text(seriesName(chartDatum));
+        });
+      
+
       if (showRawData) {
         svg.append("path")
           .attr("class", "line")
@@ -199,6 +212,7 @@ var smallMultiplesTimeChart = function() {
               (chartDatum.focusBins);
           });
       }
+
 
       
 
@@ -319,6 +333,14 @@ var smallMultiplesTimeChart = function() {
     }
     showRawData = value;
     drawChart();
+    return chart;
+  }
+
+  chart.seriesName = function(value) {
+    if (!arguments.length) {
+      return seriesName;
+    }
+    seriesName = value;
     return chart;
   }
 
